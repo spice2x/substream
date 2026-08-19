@@ -1,9 +1,9 @@
-# spiceweb
+# substream for spice2x
 
 A browser front end for [spice2x](https://github.com/spice2x/spice2x.github.io): shows the game screen
-and sends mouse/touch input back to it. Nothing else.
+and sends mouse/touch input back to it. That's all.
 
-## Setup
+## Setting up spice2x for API server
 
 Grab the latest zip from [Releases](https://github.com/spice2x/substream/releases) and unpack it
 anywhere.
@@ -16,19 +16,19 @@ spice64.exe -api <port> -apistream
 
 Add `-apipass <password>` if you want the input connection encrypted.
 
-## Running
+## Running the substream server
 
-Double-click `serve.bat`, then open the URL it prints. To use it from a phone or tablet,
-pick the one with the PC's network address.
+Double-click `serve.bat` to start the server. It doesn't have to be on the same PC that is running spice2x.
 
-On iPhone and iPad, use Share then Add to Home Screen and launch it from there - iOS has no
-fullscreen button to offer, but a home screen app runs without browser chrome.
+## Connecting a client
 
-Opening `index.html` directly also works if the browser is on the same PC as the game.
+Open a web browser on any device and navigate to one of the URLs shown by the server.
 
-## Usage
+To make the web page full screen on iOS, use Share then Add to Home Screen and launch it from there.
 
-Fill in the host, press Connect, and touch the screen. Settings are remembered.
+## Options
+
+Fill in the host, press Connect. Settings are remembered, including the password, in plain text.
 
 | Setting       | Notes                                             |
 | ------------- | ------------------------------------------------- |
@@ -38,10 +38,10 @@ Fill in the host, press Connect, and touch the screen. Settings are remembered.
 | Screen        | `auto` picks the subscreen when the game has one  |
 | FPS / Quality | 1-60 and 1-100, lower them on a slow connection   |
 
-## If it does not work
+## Troubleshooting
 
 - Ensure spice2x is up to date.
 - Let port, port+1, and port+2 through Windows Firewall when connecting from another device.
-- Serve the page over plain HTTP. An HTTPS page cannot reach the game at all.
-- Only one viewer per screen is allowed. Close the other tab and it will connect on its own.
-- The video is unencrypted and unauthenticated. Anyone who can reach the port can watch.
+- Web server must be running on HTTP, not HTTPS.
+- spice2x limits to one viewer per screen for the stream API.
+- Streaming video from spice2x is unencrypted and unauthenticated. Anyone who can reach the port can watch.
