@@ -20,6 +20,8 @@ Add `-apipass <password>` if you want the input connection encrypted.
 
 Double-click `serve.bat` to start the server. It doesn't have to be on the same PC that is running spice2x.
 
+Requires `python` in the PATH.
+
 ## Connecting a client
 
 Open a web browser on any device and navigate to one of the URLs shown by the server.
