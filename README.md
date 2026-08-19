@@ -11,7 +11,7 @@ anywhere.
 Launch the game with the API and the video stream enabled:
 
 ```
-spice64.exe -api 1337 -apistream
+spice64.exe -api <port> -apistream
 ```
 
 Add `-apipass <password>` if you want the input connection encrypted.
@@ -40,7 +40,7 @@ Fill in the host, press Connect, and touch the screen. Settings are remembered.
 
 ## If it does not work
 
-- Let ports `1338` and `1339` through Windows Firewall when connecting from another device.
+- Let port, port+1, and port+2 through Windows Firewall when connecting from another device.
 - Serve the page over plain HTTP. An HTTPS page cannot reach the game at all.
 - Only one viewer per screen is allowed. Close the other tab and it will connect on its own.
 - The video is unencrypted and unauthenticated. Anyone who can reach the port can watch.
