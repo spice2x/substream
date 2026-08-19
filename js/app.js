@@ -13,8 +13,15 @@
 
     const STREAM_RETRY_MS = 3000;
     const STREAM_RESTART_MS = 300;
+    const STREAM_STALL_MS = 8000;
     const API_RETRY_MS = 3000;
     const TOUCH_REPEAT_MS = 50;
+
+    // whoever served this page is usually also running the game, but not when it is hosted
+    // elsewhere - keep it a placeholder so it never reads as a confirmed address
+    const HOST_GUESS = location.protocol.startsWith('http') && location.hostname
+            ? location.hostname
+            : '127.0.0.1';
 
     // SpiceAPI takes touch coordinates in a canvas the game fixes, which is not always the
     // resolution the stream arrives in - spice2x rescales or rotates them on the way in.
@@ -38,6 +45,7 @@
     let streamWanted = false;
     let touchCanvas = null;
     let retryTimer = null;
+    let stallTimer = null;
     let apiRetryTimer = null;
     let repeatTimer = null;
     let noteTimer = null;
@@ -71,11 +79,8 @@
             }
         }
 
-        if (!el('host').value) {
-            el('host').value = location.protocol.startsWith('http') && location.hostname
-                    ? location.hostname
-                    : '127.0.0.1';
-        }
+        // unconditional, so the hint always matches what hostName() falls back to
+        el('host').placeholder = HOST_GUESS;
 
         return saved !== null;
     }
@@ -96,8 +101,12 @@
         return clamp(number(el('apiPort').value, 1337), 1, 65533);
     }
 
+    function hostName() {
+        return el('host').value.trim() || HOST_GUESS;
+    }
+
     function streamUrl() {
-        const host = el('host').value.trim() || '127.0.0.1';
+        const host = hostName();
         const authority = host.includes(':') && !host.startsWith('[') ? `[${host}]` : host;
 
         // the stream server sits two ports above the API port
@@ -327,12 +336,37 @@
         retryTimer = null;
         streamState = 'connecting';
         video.src = streamUrl();
+
+        // asking for a screen the game does not render is accepted and then silent forever,
+        // and a dead stream never fires error, so only a timeout can notice
+        clearTimeout(stallTimer);
+        stallTimer = setTimeout(() => {
+            note('No frames on that screen - retrying');
+            streamFailed();
+        }, STREAM_STALL_MS);
+
         render();
+    }
+
+    function streamFailed() {
+        if (!streamWanted) {
+            return;
+        }
+
+        clearTimeout(stallTimer);
+        stallTimer = null;
+        streamState = 'error';
+        render();
+
+        clearTimeout(retryTimer);
+        retryTimer = setTimeout(startStream, STREAM_RETRY_MS);
     }
 
     function stopStream() {
         clearTimeout(retryTimer);
         retryTimer = null;
+        clearTimeout(stallTimer);
+        stallTimer = null;
         streamState = 'idle';
         video.removeAttribute('src');
     }
@@ -354,22 +388,16 @@
     video.addEventListener('load', () => {
         // multipart streams fire this once per frame, only act on the first one
         if (streamWanted && streamState !== 'live') {
+            clearTimeout(stallTimer);
+            stallTimer = null;
             streamState = 'live';
             render();
         }
     });
 
     video.addEventListener('error', () => {
-        if (!streamWanted) {
-            return;
-        }
-
-        streamState = 'error';
-        render();
-
         // the server refuses a second viewer per screen, so keep trying quietly
-        clearTimeout(retryTimer);
-        retryTimer = setTimeout(startStream, STREAM_RETRY_MS);
+        streamFailed();
     });
 
     function connect() {
@@ -380,7 +408,7 @@
         startStream();
 
         api = new SpiceApi(
-                el('host').value.trim() || '127.0.0.1',
+                hostName(),
                 apiPort(),
                 el('password').value);
 

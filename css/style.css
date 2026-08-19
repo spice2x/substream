@@ -17,6 +17,9 @@
 html, body {
     margin: 0;
     height: 100%;
+
+    /* iOS Safari keeps its toolbars in landscape, dvh is what is left over for us */
+    height: 100dvh;
     overflow: hidden;
     overscroll-behavior: none;
     background: var(--bg);
@@ -32,13 +35,16 @@ body {
     display: flex;
     flex-direction: column;
     padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
 }
 
 #bar {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 6px 10px;
+
+    /* landscape puts the notch on one side, so inset the controls but not the background */
+    padding: 6px calc(10px + env(safe-area-inset-right)) 6px calc(10px + env(safe-area-inset-left));
     background: var(--panel);
     border-bottom: 1px solid var(--line);
 }
@@ -80,10 +86,10 @@ button:hover {
     display: flex;
     flex-wrap: wrap;
     gap: 8px 12px;
-    padding: 10px;
+    padding: 10px calc(10px + env(safe-area-inset-right)) 10px calc(10px + env(safe-area-inset-left));
     background: var(--panel);
     border-bottom: 1px solid var(--line);
-    max-height: 55vh;
+    max-height: 55dvh;
     overflow: auto;
 }
 
@@ -109,6 +115,14 @@ button:hover {
     background: #14171d;
     color: var(--text);
     font: inherit;
+}
+
+/* dimmer than the label above it, or a default reads as a value the user chose */
+#settings input::placeholder {
+    color: #6e7686;
+
+    /* Firefox dims placeholders on its own, which would compound with the colour */
+    opacity: 1;
 }
 
 #stage {
@@ -144,4 +158,23 @@ button:hover {
 
 .message[hidden] {
     display: none;
+}
+
+/* phone in landscape, where the browser chrome already owns most of the height */
+@media (max-height: 450px) {
+    #bar {
+        padding-top: 3px;
+        padding-bottom: 3px;
+    }
+
+    button {
+        padding: 4px 10px;
+    }
+
+    #settings {
+        gap: 6px 10px;
+        padding-top: 6px;
+        padding-bottom: 6px;
+        max-height: 45dvh;
+    }
 }
