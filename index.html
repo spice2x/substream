@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>spiceweb</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header id="bar">
+    <span id="status" class="status">idle</span>
+    <span class="spacer"></span>
+    <button id="connect" type="button">Connect</button>
+    <button id="toggle-settings" type="button">Settings</button>
+    <button id="fullscreen" type="button">Fullscreen</button>
+</header>
+
+<section id="settings" hidden>
+    <label>Host<input id="host" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="127.0.0.1"></label>
+    <label>API port<input id="apiPort" type="number" min="1" max="65535" placeholder="1337"></label>
+    <label>Password<input id="password" type="password" autocomplete="off" placeholder="none"></label>
+    <label>Screen
+        <select id="screen">
+            <option value="">auto</option>
+            <option value="0">0</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+        </select>
+    </label>
+    <label>FPS<input id="fps" type="number" min="1" max="60" placeholder="30"></label>
+    <label>Quality<input id="quality" type="number" min="1" max="100" placeholder="70"></label>
+</section>
+
+<main id="stage">
+    <img id="video" alt="">
+    <div id="message" class="message">Not connected</div>
+</main>
+
+<script src="js/rc4.js"></script>
+<script src="js/spiceapi.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
