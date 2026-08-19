@@ -40,6 +40,7 @@ Fill in the host, press Connect, and touch the screen. Settings are remembered.
 
 ## If it does not work
 
+- Ensure spice2x is up to date.
 - Let port, port+1, and port+2 through Windows Firewall when connecting from another device.
 - Serve the page over plain HTTP. An HTTPS page cannot reach the game at all.
 - Only one viewer per screen is allowed. Close the other tab and it will connect on its own.
