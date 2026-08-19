@@ -1,6 +1,6 @@
 # spiceweb
 
-A browser front end for [spice2x](https://github.com/spice2x/spice2x): shows the game screen
+A browser front end for [spice2x](https://github.com/spice2x/spice2x.github.io): shows the game screen
 and sends mouse/touch input back to it. Nothing else.
 
 ## Setup
