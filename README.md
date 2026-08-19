@@ -5,6 +5,9 @@ and sends mouse/touch input back to it. Nothing else.
 
 ## Setup
 
+Grab the latest zip from [Releases](https://github.com/spice2x/substream/releases) and unpack it
+anywhere.
+
 Launch the game with the API and the video stream enabled:
 
 ```

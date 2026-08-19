@@ -1,0 +1,41 @@
+name: Draft Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    name: Package and Draft Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Determine release name
+        run: |
+          tag=$(date -u +'%y-%m-%d')
+          echo "RELEASE_TAG=$tag" >> $GITHUB_ENV
+          echo "RELEASE_NAME=substream-$tag" >> $GITHUB_ENV
+      - name: Package
+        run: |
+          mkdir -p dist/substream
+          cp -r index.html css js serve.bat serve.js README.md LICENSE dist/substream/
+          cd dist && zip -r "${{ env.RELEASE_NAME }}.zip" substream
+      - name: Create draft release
+        uses: softprops/action-gh-release@v3
+        with:
+          draft: true
+          prerelease: true
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: ${{ env.RELEASE_NAME }}
+          target_commitish: main
+          generate_release_notes: true
+          files: dist/substream-*.zip
