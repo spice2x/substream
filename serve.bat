@@ -30,4 +30,4 @@ echo.
 echo Press Ctrl+C to stop.
 echo.
 
-%PYTHON% -m http.server %PORT% --directory "%~dp0."
+%PYTHON% "%~dp0serve.py" %PORT%

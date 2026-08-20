@@ -38,7 +38,7 @@
     };
 
     const stage = el('stage');
-    const video = el('video');
+    let video = el('video');
     const message = el('message');
     const status = el('status');
     const settings = el('settings');
@@ -227,6 +227,11 @@
     }
 
     stage.addEventListener('pointerdown', (event) => {
+        // without a picture there is nothing to aim at, and the frame on screen is stale
+        if (streamState !== 'live') {
+            return;
+        }
+
         const point = toCanvas(event.clientX, event.clientY, true);
         if (!point) {
             return;
@@ -362,9 +367,11 @@
         stallTimer = null;
         streamState = 'error';
 
-        // a load that failed leaves the browser's broken image glyph on screen until
-        // something valid replaces it
-        video.src = BLANK_IMAGE;
+        // a contact held when the picture died would otherwise keep being asserted
+        releaseAll();
+
+        // a fresh element drops the failed load, and the broken image glyph with it
+        resetVideo();
         render();
 
         clearTimeout(retryTimer);
@@ -377,7 +384,8 @@
         clearTimeout(stallTimer);
         stallTimer = null;
         streamState = 'idle';
-        video.src = BLANK_IMAGE;
+        releaseAll();
+        resetVideo();
     }
 
     // screen, fps and quality are fixed for the life of the request, so they need a new one
@@ -394,24 +402,48 @@
         render();
     }
 
-    video.addEventListener('load', () => {
-        // the blank placeholder loads too, and it is not the stream coming up
-        if (!streamWanted || video.src.startsWith('data:')) {
-            return;
-        }
+    function bindVideo(target) {
+        target.addEventListener('load', () => {
+            // a discarded element can still deliver events, and the blank source loads too
+            if (target !== video || !streamWanted || target.src.startsWith('data:')) {
+                return;
+            }
 
-        if (streamState !== 'live') {
-            clearTimeout(stallTimer);
-            stallTimer = null;
-            streamState = 'live';
-            render();
-        }
-    });
+            if (streamState !== 'live') {
+                clearTimeout(stallTimer);
+                stallTimer = null;
+                streamState = 'live';
+                render();
+            }
+        });
 
-    video.addEventListener('error', () => {
-        // the server refuses a second viewer per screen, so keep trying quietly
-        streamFailed();
-    });
+        target.addEventListener('error', () => {
+            // the server refuses a second viewer per screen, so keep trying quietly
+            if (target === video) {
+                streamFailed();
+            }
+        });
+    }
+
+    // WebKit does not abort a multipart request when the source changes, so the element that
+    // holds the connection is thrown away rather than reused
+    function resetVideo() {
+        video.src = BLANK_IMAGE;
+
+        const fresh = document.createElement('img');
+        fresh.id = video.id;
+        fresh.alt = '';
+        video.replaceWith(fresh);
+        video = fresh;
+        bindVideo(fresh);
+
+        // WebKit ignores both of the above for a multipart stream. This is the browser's own
+        // stop button and the last cancel left that it might honour; nothing else of ours is
+        // ever in flight here, and it does not touch the websocket.
+        window.stop();
+    }
+
+    bindVideo(video);
 
     // a hidden page stops reading and the server drops the stream a few seconds later, which
     // an img reports as nothing at all - so treat coming back as a stream that needs rebuilding

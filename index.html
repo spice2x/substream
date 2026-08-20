@@ -20,7 +20,7 @@
 
 <section id="settings" hidden>
     <label>Host<input id="host" type="text" inputmode="url" autocomplete="off" spellcheck="false"></label>
-    <label>API port<input id="apiPort" type="number" min="1" max="65535"></label>
+    <label>API port<input id="apiPort" type="number" inputmode="numeric" min="1" max="65535"></label>
     <label>Password<input id="password" type="password" autocomplete="off"></label>
     <label>Screen
         <select id="screen">
@@ -31,8 +31,8 @@
             <option value="3">3</option>
         </select>
     </label>
-    <label>FPS<input id="fps" type="number" min="1" max="60" placeholder="30"></label>
-    <label>Quality<input id="quality" type="number" min="1" max="100" placeholder="70"></label>
+    <label>FPS<input id="fps" type="number" inputmode="numeric" min="1" max="60" placeholder="30"></label>
+    <label>Quality<input id="quality" type="number" inputmode="numeric" min="1" max="100" placeholder="70"></label>
 </section>
 
 <main id="stage">
