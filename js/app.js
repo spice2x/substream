@@ -8,7 +8,7 @@
 
     // kept in localStorage, password included - it is a LAN game API key, not a credential
     const SETTINGS_FIELDS = [
-        'host', 'apiPort', 'password', 'screen', 'fps', 'quality',
+        'host', 'apiPort', 'password', 'format', 'screen', 'fps', 'quality',
     ];
 
     const STREAM_RETRY_MS = 3000;
@@ -40,6 +40,7 @@
 
     const stage = el('stage');
     const video = el('video');
+    const frame = el('frame');
     const message = el('message');
     const status = el('status');
     const settings = el('settings');
@@ -82,7 +83,14 @@
 
         for (const field of SETTINGS_FIELDS) {
             if (saved && saved[field] !== undefined && saved[field] !== null) {
-                el(field).value = saved[field];
+                const target = el(field);
+                const fallback = target.value;
+                target.value = saved[field];
+
+                // a select goes blank when handed a value it has no option for
+                if (target.value === '' && saved[field] !== '') {
+                    target.value = fallback;
+                }
             }
         }
 
@@ -109,7 +117,7 @@
         return el('host').value.trim() || HOST_GUESS;
     }
 
-    function streamUrl() {
+    function streamUrl(path) {
         const host = hostName();
         const authority = host.includes(':') && !host.startsWith('[') ? `[${host}]` : host;
 
@@ -126,11 +134,26 @@
         // a fresh URL keeps the browser from reusing the previous stream connection
         query.set('_', String(Date.now()));
 
-        return `http://${authority}:${port}/stream.mjpg?${query.toString()}`;
+        return `http://${authority}:${port}${path}?${query.toString()}`;
+    }
+
+    // H.264 decodes into a canvas, MJPEG lands in an img; only one is ever on screen
+    function wantH264() {
+        return el('format').value !== 'mjpg' && H264Stream.supported;
+    }
+
+    function activeView() {
+        return frame.hidden ? video : frame;
+    }
+
+    function viewSize() {
+        return frame.hidden
+                ? { width: video.naturalWidth, height: video.naturalHeight }
+                : { width: frame.width, height: frame.height };
     }
 
     function canvasSize() {
-        return touchCanvas || { width: video.naturalWidth, height: video.naturalHeight };
+        return touchCanvas || viewSize();
     }
 
     function detectTouchCanvas() {
@@ -146,18 +169,20 @@
         });
     }
 
-    // where the letterboxed frame actually sits inside the image element
+    // where the letterboxed frame actually sits inside the element showing it
     function contentRect() {
-        const rect = video.getBoundingClientRect();
-        if (!video.naturalWidth || !video.naturalHeight || !rect.width || !rect.height) {
+        const view = activeView();
+        const size = viewSize();
+        const rect = view.getBoundingClientRect();
+        if (!size.width || !size.height || !rect.width || !rect.height) {
             return null;
         }
 
         const scale = Math.min(
-                rect.width / video.naturalWidth,
-                rect.height / video.naturalHeight);
-        const width = video.naturalWidth * scale;
-        const height = video.naturalHeight * scale;
+                rect.width / size.width,
+                rect.height / size.height);
+        const width = size.width * scale;
+        const height = size.height * scale;
 
         return {
             left: rect.left + (rect.width - width) / 2,
@@ -368,7 +393,17 @@
         clearTimeout(retryTimer);
         retryTimer = null;
         streamState = 'connecting';
-        video.src = streamUrl();
+
+        const h264 = wantH264();
+        frame.hidden = !h264;
+        video.hidden = h264;
+
+        if (h264) {
+            decoder.start(streamUrl('/stream.h264'));
+        } else {
+            video.src = streamUrl('/stream.mjpg');
+        }
+
         armStall();
         render();
     }
@@ -436,10 +471,39 @@
         streamFailed();
     });
 
+    const decoder = new H264Stream(frame);
+
+    // every frame arrives here, which an img never gave us - so this is a real liveness
+    // signal and the watchdog can cover a stream that dies mid-flight, not just a dead start
+    decoder.onframe = () => {
+        if (!streamWanted) {
+            return;
+        }
+
+        armStall();
+
+        if (streamState !== 'live') {
+            streamState = 'live';
+            render();
+        }
+    };
+
+    decoder.onerror = (error, status) => {
+        // only a build without the H.264 encoder answers 404 on a path the server routes
+        if (status === 404 && el('format').value !== 'mjpg') {
+            el('format').value = 'mjpg';
+            saveSettings();
+            note('No H.264 in this build - using MJPEG');
+        }
+
+        streamFailed();
+    };
+
     // Chromium drops the multipart request when the source changes, WebKit ignores that and
     // honours only the browser's own stop. Nothing else of ours is ever in flight here, and
     // stop() leaves the websocket alone.
     function resetVideo() {
+        decoder.stop();
         video.src = BLANK_IMAGE;
         window.stop();
     }
@@ -543,7 +607,7 @@
         settings.hidden = !settings.hidden;
     });
 
-    ['screen', 'fps', 'quality'].forEach((field) => {
+    ['format', 'screen', 'fps', 'quality'].forEach((field) => {
         el(field).addEventListener('change', () => {
             saveSettings();
             restartStream();

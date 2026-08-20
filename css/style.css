@@ -147,13 +147,20 @@ button:hover {
     overflow: hidden;
 }
 
-#video {
+#video,
+#frame {
     display: block;
     width: 100%;
     height: 100%;
     object-fit: contain;
     pointer-events: none;
     -webkit-user-drag: none;
+}
+
+/* display beats the hidden attribute, so put it back */
+#video[hidden],
+#frame[hidden] {
+    display: none;
 }
 
 .message {

@@ -23,9 +23,15 @@
     <label>Host<input id="host" type="text" inputmode="url" autocomplete="off" spellcheck="false"></label>
     <label>API port<input id="apiPort" type="number" inputmode="numeric" min="1" max="65535"></label>
     <label>Password<input id="password" type="password" autocomplete="off"></label>
+    <label>Format
+        <select id="format" autocomplete="off">
+            <option value="h264" selected>H.264</option>
+            <option value="mjpg">MJPEG</option>
+        </select>
+    </label>
     <label>Screen
-        <select id="screen">
-            <option value="">auto</option>
+        <select id="screen" autocomplete="off">
+            <option value="" selected>auto</option>
             <option value="0">0</option>
             <option value="1">1</option>
             <option value="2">2</option>
@@ -38,10 +44,12 @@
 
 <main id="stage">
     <img id="video" alt="">
+    <canvas id="frame" hidden></canvas>
     <div id="message" class="message">Not connected</div>
 </main>
 
 <script src="js/rc4.js"></script>
+<script src="js/h264.js"></script>
 <script src="js/spiceapi.js"></script>
 <script src="js/app.js"></script>
 </body>
