@@ -361,6 +361,10 @@
         clearTimeout(stallTimer);
         stallTimer = null;
         streamState = 'error';
+
+        // a load that failed leaves the browser's broken image glyph on screen until
+        // something valid replaces it
+        video.src = BLANK_IMAGE;
         render();
 
         clearTimeout(retryTimer);

@@ -161,21 +161,64 @@ button:hover {
     display: none;
 }
 
-/* phone in landscape, where the browser chrome already owns most of the height */
-@media (max-height: 450px) {
+/* Phone in landscape. The frame is always height-limited here, so it letterboxes wide and the
+   bar costs nothing standing beside it, while the height it hands back grows the picture. */
+@media (orientation: landscape) and (max-height: 450px) {
+    body {
+        flex-direction: row;
+
+        /* iOS claims both side edges for back and forward swipes, and the inset is 0 on
+           whichever side the notch is not, so a floor of its own is needed */
+        padding-left: max(env(safe-area-inset-left), 20px);
+        padding-right: max(env(safe-area-inset-right), 20px);
+    }
+
     #bar {
-        padding-top: 3px;
-        padding-bottom: 3px;
+        flex: none;
+        width: 108px;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 6px;
+        padding: 8px;
+        border-bottom: none;
+        border-right: 1px solid var(--line);
+        overflow: auto;
+    }
+
+    /* it held the buttons apart across a row, down a column it just strands them */
+    .spacer {
+        display: none;
+    }
+
+    .status {
+        font-size: 11px;
+        text-align: center;
+        white-space: normal;
     }
 
     button {
-        padding: 4px 10px;
+        padding: 6px 4px;
+        font-size: 12px;
     }
 
     #settings {
-        gap: 6px 10px;
-        padding-top: 6px;
-        padding-bottom: 6px;
-        max-height: 45dvh;
+        flex: none;
+        flex-direction: column;
+        flex-wrap: nowrap;
+        width: 160px;
+        gap: 8px;
+        padding: 8px;
+        max-height: none;
+        border-bottom: none;
+        border-right: 1px solid var(--line);
+    }
+
+    #settings input,
+    #settings select {
+        width: 100%;
+    }
+
+    #stage {
+        min-width: 0;
     }
 }
