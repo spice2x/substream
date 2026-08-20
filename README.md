@@ -5,9 +5,6 @@ and sends mouse/touch input back to it. That's all.
 
 ## Setting up spice2x for API server
 
-Grab the latest zip from [Releases](https://github.com/spice2x/substream/releases) and unpack it
-anywhere.
-
 Launch the game with the API and the video stream enabled:
 
 ```
@@ -16,8 +13,9 @@ spice64.exe -api <port> -apistream
 
 Add `-apipass <password>` if you want the input connection encrypted.
 
+## Streaming sub screen to substream app
 
-## Connecting a client
+Grab the latest zip from [Releases](https://github.com/spice2x/substream/releases) and unpack it anywhere.
 
 ### If you want to run it on your PC
 
