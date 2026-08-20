@@ -16,13 +16,16 @@ spice64.exe -api <port> -apistream
 
 Add `-apipass <password>` if you want the input connection encrypted.
 
-## Running the substream server
-
-Double-click `serve.bat` to start the server. It doesn't have to be on the same PC that is running spice2x.
-
-Requires `python` in the PATH.
 
 ## Connecting a client
+
+### On a PC
+
+Double click index.html to launch in a browser.
+
+### On a mobile device
+
+Double-click `serve.bat` to start the server on your PC. It doesn't have to be on the same PC that is running spice2x.
 
 Open a web browser on any device and navigate to one of the URLs shown by the server.
 
