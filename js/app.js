@@ -229,6 +229,10 @@
     }
 
     stage.addEventListener('pointerdown', (event) => {
+        // the stage wants no browser default anywhere, including the letterbox around the
+        // frame - in landscape that dead area is most of it
+        event.preventDefault();
+
         // without a picture there is nothing to aim at, and the frame on screen is stale
         if (streamState !== 'live') {
             return;
@@ -238,8 +242,6 @@
         if (!point) {
             return;
         }
-
-        event.preventDefault();
 
         if (nextTouchId > 0xffff) {
             nextTouchId = 1;
@@ -292,6 +294,17 @@
     ['gesturestart', 'gesturechange', 'gestureend'].forEach((name) => {
         document.addEventListener(name, (event) => event.preventDefault(), { passive: false });
     });
+
+    // touch-action: manipulation ought to be enough, but iOS still zooms on a quick second
+    // tap. Controls are left alone so their tap still turns into a click.
+    let lastTapAt = 0;
+    document.addEventListener('touchend', (event) => {
+        const now = Date.now();
+        if (now - lastTapAt < 300 && !event.target.closest('button, input, select, label')) {
+            event.preventDefault();
+        }
+        lastTapAt = now;
+    }, { passive: false });
 
     function render() {
         let text;

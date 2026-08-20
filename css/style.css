@@ -16,6 +16,10 @@
 
 * {
     box-sizing: border-box;
+
+    /* iOS ignores user-scalable=no, this is what actually kills double-tap zoom - and it has
+       to be on every element, because touch-action is not inherited. #stage overrides it. */
+    touch-action: manipulation;
 }
 
 html, body {
@@ -30,9 +34,6 @@ html, body {
     color: var(--text);
     font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
     -webkit-text-size-adjust: 100%;
-
-    /* iOS ignores user-scalable=no, this is what actually kills double-tap zoom */
-    touch-action: manipulation;
 }
 
 body {
@@ -120,6 +121,9 @@ button:hover {
     background: var(--frame);
     color: var(--text);
     font: inherit;
+
+    /* iOS zooms the page when focusing a control smaller than 16px */
+    font-size: 16px;
 }
 
 /* dim and slanted, or a default reads as a value that was chosen */
