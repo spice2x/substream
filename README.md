@@ -13,6 +13,10 @@ spice64.exe -api <port> -apistream
 
 Add `-apipass <password>` if you want the input connection encrypted.
 
+Alternatively, in spicecfg:
+
+<img width="568" height="356" alt="cfg" src="https://github.com/user-attachments/assets/caeffedb-1162-4d49-a30f-16bbe0a1d6d9" />
+
 ## Streaming sub screen to substream app
 
 Grab the latest zip from [Releases](https://github.com/spice2x/substream/releases) and unpack it anywhere.
