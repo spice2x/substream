@@ -4,7 +4,7 @@
 
     const el = (id) => document.getElementById(id);
 
-    const SETTINGS_KEY = 'spiceweb.settings';
+    const SETTINGS_KEY = 'substream.spice2x.settings';
 
     // kept in localStorage, password included - it is a LAN game API key, not a credential
     const SETTINGS_FIELDS = [
@@ -331,20 +331,24 @@
         }, 4000);
     }
 
+    // a dead stream never fires error, so a timeout is the only thing that can notice one.
+    // load repeats per frame on a multipart stream, which makes it a usable heartbeat
+    function armStall() {
+        clearTimeout(stallTimer);
+        stallTimer = setTimeout(() => {
+            note(streamState === 'live'
+                    ? 'Video stopped - reconnecting'
+                    : 'No frames on that screen - retrying');
+            streamFailed();
+        }, STREAM_STALL_MS);
+    }
+
     function startStream() {
         clearTimeout(retryTimer);
         retryTimer = null;
         streamState = 'connecting';
         video.src = streamUrl();
-
-        // asking for a screen the game does not render is accepted and then silent forever,
-        // and a dead stream never fires error, so only a timeout can notice
-        clearTimeout(stallTimer);
-        stallTimer = setTimeout(() => {
-            note('No frames on that screen - retrying');
-            streamFailed();
-        }, STREAM_STALL_MS);
-
+        armStall();
         render();
     }
 
@@ -386,10 +390,14 @@
     }
 
     video.addEventListener('load', () => {
-        // multipart streams fire this once per frame, only act on the first one
-        if (streamWanted && streamState !== 'live') {
-            clearTimeout(stallTimer);
-            stallTimer = null;
+        if (!streamWanted) {
+            return;
+        }
+
+        armStall();
+
+        // multipart streams fire this once per frame, only the first is a state change
+        if (streamState !== 'live') {
             streamState = 'live';
             render();
         }

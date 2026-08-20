@@ -61,5 +61,5 @@ http.createServer((req, res) => {
         res.end(req.method === 'HEAD' ? undefined : data);
     });
 }).listen(PORT, () => {
-    console.log(`spiceweb serving ${ROOT} on http://0.0.0.0:${PORT}`);
+    console.log(`substream serving ${ROOT} on http://0.0.0.0:${PORT}`);
 });
