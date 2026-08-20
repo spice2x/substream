@@ -1,13 +1,17 @@
+/* tracks the spice2x overlay theme in overlay.cpp, so the two read as one tool */
 :root {
     color-scheme: dark;
-    --bg: #101216;
-    --panel: #1a1d23;
-    --line: #2b2f38;
-    --text: #dfe3ea;
-    --muted: #8b93a3;
-    --accent: #4c8dff;
-    --bad: #ff6b6b;
+    --bg: #141212;
+    --panel: #1a1717;
+    --line: #402626;
+    --text: #ffe6e6;
+    --muted: #a68f8f;
+    --accent: #d92626;
+    --bad: #ff8080;
     --good: #4cd07d;
+    --frame: #261a1a;
+    --button: #4d1f1f;
+    --button-hover: #802e2e;
 }
 
 * {
@@ -72,13 +76,14 @@ button {
     padding: 6px 12px;
     border: 1px solid var(--line);
     border-radius: 6px;
-    background: #232733;
+    background: var(--button);
     color: var(--text);
     font: inherit;
     cursor: pointer;
 }
 
 button:hover {
+    background: var(--button-hover);
     border-color: var(--accent);
 }
 
@@ -112,14 +117,14 @@ button:hover {
     padding: 5px 7px;
     border: 1px solid var(--line);
     border-radius: 6px;
-    background: #14171d;
+    background: var(--frame);
     color: var(--text);
     font: inherit;
 }
 
 /* dim and slanted, or a default reads as a value that was chosen */
 #settings input::placeholder {
-    color: #555c6a;
+    color: #7a5f5f;
     font-style: italic;
 
     /* Firefox dims placeholders on its own, which would compound with the colour */

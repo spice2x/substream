@@ -15,6 +15,7 @@
     const STREAM_RESTART_MS = 300;
     const STREAM_STALL_MS = 8000;
     const API_RETRY_MS = 3000;
+    const API_PING_MS = 10000;
     const TOUCH_REPEAT_MS = 50;
 
     // 1x1 transparent GIF. assigning a new source is what aborts a multipart request -
@@ -38,7 +39,7 @@
     };
 
     const stage = el('stage');
-    let video = el('video');
+    const video = el('video');
     const message = el('message');
     const status = el('status');
     const settings = el('settings');
@@ -52,6 +53,7 @@
     let retryTimer = null;
     let stallTimer = null;
     let apiRetryTimer = null;
+    let pingTimer = null;
     let repeatTimer = null;
     let noteTimer = null;
 
@@ -402,48 +404,32 @@
         render();
     }
 
-    function bindVideo(target) {
-        target.addEventListener('load', () => {
-            // a discarded element can still deliver events, and the blank source loads too
-            if (target !== video || !streamWanted || target.src.startsWith('data:')) {
-                return;
-            }
+    video.addEventListener('load', () => {
+        // the blank placeholder loads too, and it is not the stream coming up
+        if (!streamWanted || video.src.startsWith('data:')) {
+            return;
+        }
 
-            if (streamState !== 'live') {
-                clearTimeout(stallTimer);
-                stallTimer = null;
-                streamState = 'live';
-                render();
-            }
-        });
+        if (streamState !== 'live') {
+            clearTimeout(stallTimer);
+            stallTimer = null;
+            streamState = 'live';
+            render();
+        }
+    });
 
-        target.addEventListener('error', () => {
-            // the server refuses a second viewer per screen, so keep trying quietly
-            if (target === video) {
-                streamFailed();
-            }
-        });
-    }
+    video.addEventListener('error', () => {
+        // the server refuses a second viewer per screen, so keep trying quietly
+        streamFailed();
+    });
 
-    // WebKit does not abort a multipart request when the source changes, so the element that
-    // holds the connection is thrown away rather than reused
+    // Chromium drops the multipart request when the source changes, WebKit ignores that and
+    // honours only the browser's own stop. Nothing else of ours is ever in flight here, and
+    // stop() leaves the websocket alone.
     function resetVideo() {
         video.src = BLANK_IMAGE;
-
-        const fresh = document.createElement('img');
-        fresh.id = video.id;
-        fresh.alt = '';
-        video.replaceWith(fresh);
-        video = fresh;
-        bindVideo(fresh);
-
-        // WebKit ignores both of the above for a multipart stream. This is the browser's own
-        // stop button and the last cancel left that it might honour; nothing else of ours is
-        // ever in flight here, and it does not touch the websocket.
         window.stop();
     }
-
-    bindVideo(video);
 
     // a hidden page stops reading and the server drops the stream a few seconds later, which
     // an img reports as nothing at all - so treat coming back as a stream that needs rebuilding
@@ -452,6 +438,22 @@
             restartStream();
         }
     });
+
+    // a websocket that dies without a close stays readyState OPEN, so only traffic proves it.
+    // touches count as traffic; without this the first touch after a drop is what discovers it
+    function startPing() {
+        clearInterval(pingTimer);
+        pingTimer = setInterval(() => {
+            if (api && api.connected && pointers.size === 0) {
+                api.request('info', 'avs').catch(() => {});
+            }
+        }, API_PING_MS);
+    }
+
+    function stopPing() {
+        clearInterval(pingTimer);
+        pingTimer = null;
+    }
 
     function connect() {
         disconnect();
@@ -469,7 +471,9 @@
             apiState = state;
             if (state === 'open') {
                 detectTouchCanvas();
+                startPing();
             } else {
+                stopPing();
                 touchCanvas = null;
                 pointers.clear();
                 resets.length = 0;
@@ -496,6 +500,7 @@
     function disconnect() {
         streamWanted = false;
         stopStream();
+        stopPing();
 
         clearTimeout(apiRetryTimer);
         apiRetryTimer = null;

@@ -27,7 +27,7 @@ jobs:
       - name: Package
         run: |
           mkdir -p dist/substream
-          cp -r index.html css js serve.bat serve.js README.md LICENSE dist/substream/
+          cp -r index.html css js serve.bat serve.py serve.js README.md LICENSE dist/substream/
           cd dist && zip -r "${{ env.RELEASE_NAME }}.zip" substream
       - name: Create draft release
         uses: softprops/action-gh-release@v3
