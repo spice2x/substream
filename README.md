@@ -55,6 +55,7 @@ H.264 encoder falls back to MJPEG on its own.
 
 - Ensure spice2x is up to date.
 - Let port, port+1, and port+2 through Windows Firewall when connecting from another device.
+- Double check your IP; don't mix up IP address of PC running the game (spice2x API port) and IP address of PC running substream - which may or may not be the same.
 - Web server must be running on HTTP, not HTTPS.
-- spice2x limits to one viewer per screen for the stream API.
+- spice2x limits to one viewer per screen for the stream API. Disconnect all other clients if you can connect to API but can't get video.
 - Streaming video from spice2x is unencrypted and unauthenticated. Anyone who can reach the port can watch.
