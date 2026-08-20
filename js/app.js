@@ -17,6 +17,12 @@
     const API_RETRY_MS = 3000;
     const TOUCH_REPEAT_MS = 50;
 
+    // 1x1 transparent GIF. assigning a new source is what aborts a multipart request -
+    // removing the attribute leaves the socket open, and the server goes on streaming to it
+    // and holding the screen claim because nothing about the connection looks wrong
+    const BLANK_IMAGE = 'data:image/gif;base64,'
+            + 'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+
     // whoever served this page is usually also running the game, so a blank host falls back
     // to it rather than making the address be typed out again
     const HOST_GUESS = (location.protocol.startsWith('http') && location.hostname)
@@ -327,14 +333,13 @@
         }, 4000);
     }
 
-    // a dead stream never fires error, so a timeout is the only thing that can notice one.
-    // load repeats per frame on a multipart stream, which makes it a usable heartbeat
+    // a stream that is accepted and then stays silent fires no error at all, so a timeout is
+    // the only thing that can notice. this covers the first frame only - load fires once per
+    // connection, not once per frame, so it cannot be used as a heartbeat
     function armStall() {
         clearTimeout(stallTimer);
         stallTimer = setTimeout(() => {
-            note(streamState === 'live'
-                    ? 'Video stopped - reconnecting'
-                    : 'No frames on that screen - retrying');
+            note('No frames on that screen - retrying');
             streamFailed();
         }, STREAM_STALL_MS);
     }
@@ -368,7 +373,7 @@
         clearTimeout(stallTimer);
         stallTimer = null;
         streamState = 'idle';
-        video.removeAttribute('src');
+        video.src = BLANK_IMAGE;
     }
 
     // screen, fps and quality are fixed for the life of the request, so they need a new one
@@ -386,14 +391,14 @@
     }
 
     video.addEventListener('load', () => {
-        if (!streamWanted) {
+        // the blank placeholder loads too, and it is not the stream coming up
+        if (!streamWanted || video.src.startsWith('data:')) {
             return;
         }
 
-        armStall();
-
-        // multipart streams fire this once per frame, only the first is a state change
         if (streamState !== 'live') {
+            clearTimeout(stallTimer);
+            stallTimer = null;
             streamState = 'live';
             render();
         }
@@ -402,6 +407,14 @@
     video.addEventListener('error', () => {
         // the server refuses a second viewer per screen, so keep trying quietly
         streamFailed();
+    });
+
+    // a hidden page stops reading and the server drops the stream a few seconds later, which
+    // an img reports as nothing at all - so treat coming back as a stream that needs rebuilding
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && streamWanted) {
+            restartStream();
+        }
     });
 
     function connect() {
