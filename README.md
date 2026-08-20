@@ -38,8 +38,14 @@ Fill in the host, press Connect. Settings are remembered, including the password
 | Host          | Address of the machine running the game           |
 | API port      | Whatever was passed to `-api`, default `1337`     |
 | Password      | Matches `-apipass`, leave empty if unused         |
+| Format        | `H.264` is far lighter on battery and bandwidth   |
 | Screen        | `auto` picks the subscreen when the game has one  |
 | FPS / Quality | 1-60 and 1-100, lower them on a slow connection   |
+
+H.264 decodes in hardware and costs a few times less bandwidth than MJPEG, so it is the
+better choice on a phone. It needs iOS 16.4 or a recent desktop browser; where that is
+missing the option is greyed out and MJPEG is used instead. A build of spice2x without the
+H.264 encoder falls back to MJPEG on its own.
 
 ## Troubleshooting
 

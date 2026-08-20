@@ -8,6 +8,9 @@ class H264Stream {
     // a NAL that never ends would otherwise grow without bound
     static PENDING_LIMIT = 4 * 1024 * 1024;
 
+    // how many frames may be queued before the decoder is considered to have fallen behind
+    static QUEUE_LIMIT = 8;
+
     static get supported() {
         return typeof VideoDecoder !== 'undefined' && typeof AbortController !== 'undefined';
     }
@@ -21,6 +24,7 @@ class H264Stream {
         this.pending = new Uint8Array(0);
         this.unit = [];
         this.frames = 0;
+        this.resyncing = false;
 
         // called on the first decoded frame, on every frame, and on any failure
         this.onframe = () => {};
@@ -83,6 +87,7 @@ class H264Stream {
         this.pending = new Uint8Array(0);
         this.unit = [];
         this.frames = 0;
+        this.resyncing = false;
     }
 
     fail(error, status) {
@@ -174,6 +179,17 @@ class H264Stream {
     }
 
     emit(key) {
+        // a decoder that has fallen behind would otherwise build a backlog, and every queued
+        // frame is latency. drop until the next IDR, which repairs the picture cleanly.
+        if (this.decoder.decodeQueueSize > H264Stream.QUEUE_LIMIT) {
+            this.resyncing = true;
+        }
+        if (this.resyncing && !key) {
+            this.unit = [];
+            return;
+        }
+        this.resyncing = false;
+
         let size = 0;
         for (const nal of this.unit) {
             size += 4 + nal.length;

@@ -11,7 +11,8 @@
         'host', 'apiPort', 'password', 'format', 'screen', 'fps', 'quality',
     ];
 
-    const STREAM_RETRY_MS = 3000;
+    const STREAM_RETRY_MS = 1000;
+    const STREAM_RETRY_MAX_MS = 15000;
     const STREAM_RESTART_MS = 300;
     const STREAM_STALL_MS = 8000;
     const API_RETRY_MS = 3000;
@@ -52,6 +53,7 @@
     let streamWanted = false;
     let touchCanvas = null;
     let retryTimer = null;
+    let retryDelay = STREAM_RETRY_MS;
     let stallTimer = null;
     let apiRetryTimer = null;
     let pingTimer = null;
@@ -425,7 +427,10 @@
         render();
 
         clearTimeout(retryTimer);
-        retryTimer = setTimeout(startStream, STREAM_RETRY_MS);
+
+        // a busy screen is routine rather than broken, so ease off instead of hammering it
+        retryTimer = setTimeout(startStream, retryDelay);
+        retryDelay = Math.min(retryDelay * 2, STREAM_RETRY_MAX_MS);
     }
 
     function stopStream() {
@@ -452,6 +457,14 @@
         render();
     }
 
+    function goLive() {
+        clearTimeout(stallTimer);
+        stallTimer = null;
+        retryDelay = STREAM_RETRY_MS;
+        streamState = 'live';
+        render();
+    }
+
     video.addEventListener('load', () => {
         // the blank placeholder loads too, and it is not the stream coming up
         if (!streamWanted || video.src.startsWith('data:')) {
@@ -459,10 +472,7 @@
         }
 
         if (streamState !== 'live') {
-            clearTimeout(stallTimer);
-            stallTimer = null;
-            streamState = 'live';
-            render();
+            goLive();
         }
     });
 
@@ -483,8 +493,7 @@
         armStall();
 
         if (streamState !== 'live') {
-            streamState = 'live';
-            render();
+            goLive();
         }
     };
 
@@ -537,6 +546,7 @@
         saveSettings();
 
         streamWanted = true;
+        retryDelay = STREAM_RETRY_MS;
         startStream();
 
         api = new SpiceApi(
@@ -637,5 +647,18 @@
 
     // first run has nothing to connect to yet, so start on the settings
     settings.hidden = loadSettings();
+
+    // WebCodecs arrived in Safari 16.4; without it the choice cannot be honoured, and a
+    // selector still reading H.264 while MJPEG streams is worse than not offering it
+    if (!H264Stream.supported) {
+        const option = el('format').querySelector('option[value="h264"]');
+        option.disabled = true;
+        option.textContent = 'H.264 (unsupported)';
+
+        if (el('format').value === 'h264') {
+            el('format').value = 'mjpg';
+        }
+    }
+
     render();
 })();
