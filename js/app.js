@@ -17,11 +17,10 @@
     const API_RETRY_MS = 3000;
     const TOUCH_REPEAT_MS = 50;
 
-    // whoever served this page is usually also running the game, but not when it is hosted
-    // elsewhere - keep it a placeholder so it never reads as a confirmed address
-    const HOST_GUESS = location.protocol.startsWith('http') && location.hostname
-            ? location.hostname
-            : '127.0.0.1';
+    // whoever served this page is usually also running the game, so a blank host falls back
+    // to it rather than making the address be typed out again
+    const HOST_GUESS = (location.protocol.startsWith('http') && location.hostname)
+            || '127.0.0.1';
 
     // SpiceAPI takes touch coordinates in a canvas the game fixes, which is not always the
     // resolution the stream arrives in - spice2x rescales or rotates them on the way in.
@@ -78,9 +77,6 @@
                 el(field).value = saved[field];
             }
         }
-
-        // unconditional, so the hint always matches what hostName() falls back to
-        el('host').placeholder = HOST_GUESS;
 
         return saved !== null;
     }

@@ -117,9 +117,10 @@ button:hover {
     font: inherit;
 }
 
-/* dimmer than the label above it, or a default reads as a value the user chose */
+/* dim and slanted, or a default reads as a value that was chosen */
 #settings input::placeholder {
-    color: #6e7686;
+    color: #555c6a;
+    font-style: italic;
 
     /* Firefox dims placeholders on its own, which would compound with the colour */
     opacity: 1;
