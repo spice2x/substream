@@ -33,6 +33,18 @@ Open a web browser on any device and navigate to one of the URLs shown by the se
 
 To make the web page full screen on iOS, use Share then Add to Home Screen and launch it from there.
 
+#### Using a different port
+
+`serve.bat` listens on `45000`. Pass a port to change it:
+
+```
+serve.bat 9000
+```
+
+Port `8080` is deliberately avoided - spice2x runs its own e-amusement server there for `-ea`,
+and also falls back to it when smart e-amusement finds the real service unreachable. Sharing
+that port breaks whichever of the two starts second.
+
 ## Options
 
 Fill in the host, press Connect. Settings are remembered, including the password, in plain text.

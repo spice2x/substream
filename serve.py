@@ -9,7 +9,9 @@ import http.server
 import os
 import sys
 
-PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8080
+# not 8080: spice2x runs its own e-amusement server there for -ea and smart ea. 45000 also
+# stays below the 49152 dynamic range, which outbound connections are allocated from.
+PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 45000
 ROOT = os.path.dirname(os.path.abspath(__file__))
 
 

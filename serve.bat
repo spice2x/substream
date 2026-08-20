@@ -3,12 +3,12 @@ rem Serves this folder with Python's built-in HTTP server so a phone or tablet c
 rem the app. Plain HTTP on purpose: an HTTPS page cannot reach the game's http:// stream
 rem or its ws:// API port.
 rem
-rem Usage: serve.bat [port]      (default 8080)
+rem Usage: serve.bat [port]      (default 45000, since spice2x uses 8080 for -ea)
 
 setlocal
 
 set "PORT=%~1"
-if "%PORT%"=="" set "PORT=8080"
+if "%PORT%"=="" set "PORT=45000"
 
 set "PYTHON="
 where py >nul 2>&1 && set "PYTHON=py -3"

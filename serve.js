@@ -9,7 +9,9 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = __dirname;
-const PORT = Number(process.argv[2]) || 8080;
+// not 8080: spice2x runs its own e-amusement server there for -ea and smart ea. 45000 also
+// stays below the 49152 dynamic range, which outbound connections are allocated from.
+const PORT = Number(process.argv[2]) || 45000;
 
 const TYPES = {
     '.html': 'text/html; charset=utf-8',
