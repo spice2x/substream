@@ -19,11 +19,11 @@ Add `-apipass <password>` if you want the input connection encrypted.
 
 ## Connecting a client
 
-### On a PC
+### If you want to run it on your PC
 
 Double click index.html to launch in a browser.
 
-### On a mobile device
+### If you want to run it on your mobile device
 
 Double-click `serve.bat` to start the server on your PC. It doesn't have to be on the same PC that is running spice2x.
 
