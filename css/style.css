@@ -73,17 +73,22 @@ body {
     color: var(--bad);
 }
 
-button {
+button,
+.button {
+    display: inline-block;
     padding: 6px 12px;
     border: 1px solid var(--line);
     border-radius: 6px;
     background: var(--button);
     color: var(--text);
     font: inherit;
+    text-align: center;
+    text-decoration: none;
     cursor: pointer;
 }
 
-button:hover {
+button:hover,
+.button:hover {
     background: var(--button-hover);
     border-color: var(--accent);
 }
@@ -212,7 +217,8 @@ button:hover {
         white-space: normal;
     }
 
-    button {
+    button,
+    .button {
         padding: 6px 4px;
         font-size: 12px;
     }
