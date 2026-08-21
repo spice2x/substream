@@ -29,6 +29,7 @@
     // to it rather than making the address be typed out again
     const HOST_GUESS = (location.protocol.startsWith('http') && location.hostname)
             || '127.0.0.1';
+    const HTTPS_PAGE = location.protocol === 'https:';
 
     // SpiceAPI takes touch coordinates in a canvas the game fixes, which is not always the
     // resolution the stream arrives in - spice2x rescales or rotates them on the way in.
@@ -355,7 +356,10 @@
             return;
         }
 
-        if (!streamWanted) {
+        if (HTTPS_PAGE) {
+            message.textContent = 'HTTPS blocks spice2x connections - open this page over HTTP';
+            message.hidden = false;
+        } else if (!streamWanted) {
             message.textContent = 'Not connected';
             message.hidden = false;
         } else if (streamState === 'live') {
