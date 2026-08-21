@@ -93,6 +93,10 @@ button:hover,
     border-color: var(--accent);
 }
 
+button[hidden] {
+    display: none;
+}
+
 #settings {
     display: flex;
     flex-wrap: wrap;
@@ -180,6 +184,27 @@ button:hover,
 
 .message[hidden] {
     display: none;
+}
+
+@media (orientation: portrait) and (max-width: 480px) {
+    #bar {
+        flex-wrap: wrap;
+    }
+
+    .status {
+        flex: 1 0 100%;
+    }
+
+    .spacer {
+        display: none;
+    }
+
+    button,
+    .button {
+        flex: 1;
+        padding: 6px 4px;
+        font-size: 12px;
+    }
 }
 
 /* Phone in landscape. The frame is always height-limited here, so it letterboxes wide and the
