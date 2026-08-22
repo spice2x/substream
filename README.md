@@ -78,6 +78,7 @@ missing the option is greyed out and MJPEG is used instead.
 - spice2x limits to one viewer per screen for the stream API. Disconnect all other clients if you can connect to API but can't get video.
 - Streaming video from spice2x is unencrypted and unauthenticated. Anyone who can reach the port can watch.
 - If the command line window immediately closes, make sure you installed python 3.
+- Keep the FPS to be under 30 - any higher than that, it may start affecting the game's performance.
 
 ## Contributing
 
