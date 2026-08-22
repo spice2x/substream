@@ -93,10 +93,13 @@ class MseSink {
                 && MediaSource.isTypeSupported('video/mp4; codecs="avc1.42E01E"');
     }
 
-    // nominal only: the source carries no timestamps, and real pacing comes from the
-    // live-edge correction in maybeCatchUp() below, not from these durations being accurate
+    // nominal only: used for the very first fragment, before there is a real gap to measure
     static TIMESCALE = 90000;
     static NOMINAL_DURATION = Math.round(MseSink.TIMESCALE / 30);
+
+    // a stray huge gap (tab backgrounded, game hitch) would otherwise stretch one fragment
+    // across it and then immediately trip maybeCatchUp() into a seek anyway - clamp instead
+    static MAX_DURATION_S = 0.5;
 
     // how far behind the buffered edge playback may drift before jumping forward
     static MAX_LATENCY_S = 0.5;
@@ -111,6 +114,8 @@ class MseSink {
         this.onerror = onerror;
         this.onframe = onframe;
         this.sequence = 1;
+        this.mediaTimeTicks = 0;
+        this.lastDecodeAt = null;
         this.queue = Promise.resolve();
         this.lastPruneAt = 0;
 
@@ -181,8 +186,19 @@ class MseSink {
             return;
         }
 
-        const baseTime = (this.sequence - 1) * MseSink.NOMINAL_DURATION;
-        this.append(Mp4Mux.fragment(nals, this.sequence, baseTime, MseSink.NOMINAL_DURATION, key));
+        // the source carries no timestamps, so the gap since the last frame is the only
+        // signal for how long this one should play - matching it to spice2x's actual
+        // delivery rate keeps the buffered edge from drifting away from playback, which a
+        // fixed nominal duration did whenever the real rate wasn't exactly what was assumed
+        const now = performance.now();
+        const elapsedS = this.lastDecodeAt === null
+                ? MseSink.NOMINAL_DURATION / MseSink.TIMESCALE
+                : Math.min((now - this.lastDecodeAt) / 1000, MseSink.MAX_DURATION_S);
+        this.lastDecodeAt = now;
+        const durationTicks = Math.max(1, Math.round(elapsedS * MseSink.TIMESCALE));
+
+        this.append(Mp4Mux.fragment(nals, this.sequence, this.mediaTimeTicks, durationTicks, key));
+        this.mediaTimeTicks += durationTicks;
         this.sequence++;
 
         if (this.video.paused && this.video.readyState >= 2) {
