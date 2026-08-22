@@ -141,8 +141,13 @@
     }
 
     // H.264 decodes into a canvas, MJPEG lands in an img; only one is ever on screen
+    function h264Mode() {
+        const value = el('format').value;
+        return value === 'h264-mse' ? 'mse' : value === 'h264-webcodec' ? 'webcodec' : null;
+    }
+
     function wantH264() {
-        return el('format').value !== 'mjpg';
+        return h264Mode() !== null;
     }
 
     function activeView() {
@@ -405,7 +410,7 @@
         video.hidden = h264;
 
         if (h264) {
-            decoder.start(streamUrl('/stream.h264'));
+            decoder.start(streamUrl('/stream.h264'), h264Mode());
         } else {
             video.src = streamUrl('/stream.mjpg');
         }
@@ -503,7 +508,7 @@
 
     decoder.onerror = (error, status) => {
         // only a build without the H.264 encoder answers 404 on a path the server routes
-        if (status === 404 && el('format').value !== 'mjpg') {
+        if (status === 404 && wantH264()) {
             el('format').value = 'mjpg';
             saveSettings();
             note('No H.264 in this build - using MJPEG');
@@ -654,6 +659,32 @@
 
     // shows what a blank field resolves to instead of leaving the user guessing
     el('host').placeholder = HOST_GUESS;
+
+    // WebCodec and MSE are offered as separate format choices rather than one auto-picked
+    // "H.264" option - a browser can have either, both, or neither (WebCodecs' VideoDecoder
+    // is secure-context-only and disappears on the plain-http LAN origin this page is
+    // normally reached from; MSE is not gated that way), so disable whichever this browser
+    // lacks instead of guessing and looping failed reconnects. MSE is listed first (and is
+    // the fallback target below) since the common case - viewing over plain http from
+    // another device - is exactly the one WebCodec doesn't work in.
+    if (!H264Stream.webCodecSupported) {
+        const option = el('format').querySelector('option[value="h264-webcodec"]');
+        option.disabled = true;
+        option.textContent = 'H.264 (WebCodec, unsupported)';
+    }
+    if (!H264Stream.mseSupported) {
+        const option = el('format').querySelector('option[value="h264-mse"]');
+        option.disabled = true;
+        option.textContent = 'H.264 (MSE, unsupported)';
+    }
+
+    const selected = el('format').querySelector(`option[value="${el('format').value}"]`);
+    if (selected && selected.disabled) {
+        const fallback = Array.from(el('format').options).find((o) => !o.disabled);
+        if (fallback) {
+            el('format').value = fallback.value;
+        }
+    }
 
     render();
 })();
