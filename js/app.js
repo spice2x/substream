@@ -664,7 +664,9 @@
     // "H.264" option - a browser can have either, both, or neither (WebCodecs' VideoDecoder
     // is secure-context-only and disappears on the plain-http LAN origin this page is
     // normally reached from; MSE is not gated that way), so disable whichever this browser
-    // lacks instead of guessing and looping failed reconnects.
+    // lacks instead of guessing and looping failed reconnects. MSE is listed first (and is
+    // the fallback target below) since the common case - viewing over plain http from
+    // another device - is exactly the one WebCodec doesn't work in.
     if (!H264Stream.webCodecSupported) {
         const option = el('format').querySelector('option[value="h264-webcodec"]');
         option.disabled = true;
