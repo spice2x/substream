@@ -27,9 +27,9 @@ Double click index.html to launch in a browser.
 
 ### If you want to run it on your mobile device
 
-Double-click `serve.bat` to start the server on your PC. It doesn't have to be on the same PC that is running spice2x.
-
-Open a web browser on any device and navigate to one of the URLs shown by the server.
+1. Double-click `serve.bat` to start the server on your PC. It doesn't have to be on the same PC that is running spice2x
+2. Open a web browser on any device and navigate to one of the URLs shown by the server; e.g., `http://<ip>:45000`
+3. Fill out `Host` and `API port`, press `Connect`
 
 To make the web page full screen on iOS, use Share then Add to Home Screen and launch it from there.
 
