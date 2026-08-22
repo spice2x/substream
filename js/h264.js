@@ -107,9 +107,9 @@ class MseSink {
     // how far behind live to sit deliberately. the stream carries no timestamps, so the
     // element's clock is reconstructed from arrival gaps and any short-term mismatch starves
     // it - a stall reads as a freeze followed by a jump, where MJPEG (no clock at all) just
-    // shows an uneven frame. this cushion is what buys back the difference; measured
-    // delivery jitter peaks around 30ms, so it is several frames of slack
-    static TARGET_LATENCY_S = 0.2;
+    // shows an uneven frame. measured delivery jitter peaks around 30ms, so this is roughly
+    // three worst-case gaps of slack; raising it trades latency for tolerance
+    static TARGET_LATENCY_S = 0.1;
 
     // how much buffered history is kept behind the current position
     static KEEP_BEHIND_S = 2;
