@@ -30,6 +30,7 @@ It can't be the same PC as the one running the game; touch will not work as expe
 ### If you want to run it on your mobile device
 
 1. Grab the latest zip from [Releases](https://github.com/spice2x/substream/releases) and unpack it on the PC running spice2x
+1. Ensure python 3 is enabled and in the PATH
 1. Double-click `serve.bat` to start the server
 1. Launch the game
 1. Open a web browser on any device and navigate to one of the URLs shown by the server; e.g., `http://<ip>:45000`
@@ -76,6 +77,7 @@ missing the option is greyed out and MJPEG is used instead.
 - Web server must be running on HTTP, not HTTPS.
 - spice2x limits to one viewer per screen for the stream API. Disconnect all other clients if you can connect to API but can't get video.
 - Streaming video from spice2x is unencrypted and unauthenticated. Anyone who can reach the port can watch.
+- If the command line window immediately closes, make sure you installed python 3.
 
 ## Contributing
 
