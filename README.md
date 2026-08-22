@@ -79,4 +79,4 @@ missing the option is greyed out and MJPEG is used instead.
 
 ## Contributing
 
-This is meant to be a simple reference implementation of the video stream endpoint of spice2x; please don't add new features beyond that (no card readers, no PIN input, etc).
+This is meant to be a simple reference implementation of the video stream endpoint of spice2x; please don't submit new features beyond that in this repo (no card readers, no PIN input, etc).
