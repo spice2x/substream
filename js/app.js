@@ -141,8 +141,13 @@
     }
 
     // H.264 decodes into a canvas, MJPEG lands in an img; only one is ever on screen
+    function h264Mode() {
+        const value = el('format').value;
+        return value === 'h264-mse' ? 'mse' : value === 'h264-webcodec' ? 'webcodec' : null;
+    }
+
     function wantH264() {
-        return el('format').value !== 'mjpg' && H264Stream.supported;
+        return h264Mode() !== null;
     }
 
     function activeView() {
@@ -405,7 +410,7 @@
         video.hidden = h264;
 
         if (h264) {
-            decoder.start(streamUrl('/stream.h264'));
+            decoder.start(streamUrl('/stream.h264'), h264Mode());
         } else {
             video.src = streamUrl('/stream.mjpg');
         }
@@ -503,7 +508,7 @@
 
     decoder.onerror = (error, status) => {
         // only a build without the H.264 encoder answers 404 on a path the server routes
-        if (status === 404 && el('format').value !== 'mjpg') {
+        if (status === 404 && wantH264()) {
             el('format').value = 'mjpg';
             saveSettings();
             note('No H.264 in this build - using MJPEG');
@@ -655,22 +660,27 @@
     // shows what a blank field resolves to instead of leaving the user guessing
     el('host').placeholder = HOST_GUESS;
 
-    // WebCodecs arrived in Safari 16.4; without it the choice cannot be honoured, and a
-    // selector still reading H.264 while MJPEG streams is worse than not offering it.
-    // VideoDecoder is also hidden entirely on an insecure origin (plain http on anything
-    // but localhost/127.0.0.1) even in a browser that otherwise supports it - confirmed live:
-    // desktop Chrome on a LAN IP has no VideoDecoder and loops failed reconnects, while
-    // iOS Safari on the same URL works fine. call out the insecure-origin case instead of
-    // implying the browser itself can't decode H.264.
-    if (!H264Stream.supported) {
-        const option = el('format').querySelector('option[value="h264"]');
+    // WebCodec and MSE are offered as separate format choices rather than one auto-picked
+    // "H.264" option - a browser can have either, both, or neither (WebCodecs' VideoDecoder
+    // is secure-context-only and disappears on the plain-http LAN origin this page is
+    // normally reached from; MSE is not gated that way), so disable whichever this browser
+    // lacks instead of guessing and looping failed reconnects.
+    if (!H264Stream.webCodecSupported) {
+        const option = el('format').querySelector('option[value="h264-webcodec"]');
         option.disabled = true;
-        option.textContent = window.isSecureContext
-                ? 'H.264 (unsupported)'
-                : 'H.264 (needs localhost or HTTPS)';
+        option.textContent = 'H.264 (WebCodec, unsupported)';
+    }
+    if (!H264Stream.mseSupported) {
+        const option = el('format').querySelector('option[value="h264-mse"]');
+        option.disabled = true;
+        option.textContent = 'H.264 (MSE, unsupported)';
+    }
 
-        if (el('format').value === 'h264') {
-            el('format').value = 'mjpg';
+    const selected = el('format').querySelector(`option[value="${el('format').value}"]`);
+    if (selected && selected.disabled) {
+        const fallback = Array.from(el('format').options).find((o) => !o.disabled);
+        if (fallback) {
+            el('format').value = fallback.value;
         }
     }
 
