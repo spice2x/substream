@@ -11,6 +11,15 @@ class H264Stream {
     // how many frames may be queued before the decoder is considered to have fallen behind
     static QUEUE_LIMIT = 8;
 
+    // Chromium hides VideoDecoder on a plain-http, non-localhost origin (WebCodecs is
+    // secure-context-only); Safari/iOS does not enforce that the same way. without this
+    // check, an unsupported browser gets an infinite failing retry loop instead of falling
+    // back to MJPEG - the fetch to /stream.h264 succeeds, but constructing VideoDecoder
+    // throws the moment the first SPS arrives.
+    static get supported() {
+        return typeof VideoDecoder !== 'undefined' && typeof AbortController !== 'undefined';
+    }
+
     constructor(canvas) {
         this.canvas = canvas;
         this.context = canvas.getContext('2d');

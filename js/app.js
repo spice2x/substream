@@ -142,7 +142,7 @@
 
     // H.264 decodes into a canvas, MJPEG lands in an img; only one is ever on screen
     function wantH264() {
-        return el('format').value !== 'mjpg';
+        return el('format').value !== 'mjpg' && H264Stream.supported;
     }
 
     function activeView() {
@@ -654,6 +654,25 @@
 
     // shows what a blank field resolves to instead of leaving the user guessing
     el('host').placeholder = HOST_GUESS;
+
+    // WebCodecs arrived in Safari 16.4; without it the choice cannot be honoured, and a
+    // selector still reading H.264 while MJPEG streams is worse than not offering it.
+    // VideoDecoder is also hidden entirely on an insecure origin (plain http on anything
+    // but localhost/127.0.0.1) even in a browser that otherwise supports it - confirmed live:
+    // desktop Chrome on a LAN IP has no VideoDecoder and loops failed reconnects, while
+    // iOS Safari on the same URL works fine. call out the insecure-origin case instead of
+    // implying the browser itself can't decode H.264.
+    if (!H264Stream.supported) {
+        const option = el('format').querySelector('option[value="h264"]');
+        option.disabled = true;
+        option.textContent = window.isSecureContext
+                ? 'H.264 (unsupported)'
+                : 'H.264 (needs localhost or HTTPS)';
+
+        if (el('format').value === 'h264') {
+            el('format').value = 'mjpg';
+        }
+    }
 
     render();
 })();
