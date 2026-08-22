@@ -652,5 +652,8 @@
     // first run has nothing to connect to yet, so start on the settings
     settings.hidden = loadSettings();
 
+    // shows what a blank field resolves to instead of leaving the user guessing
+    el('host').placeholder = HOST_GUESS;
+
     render();
 })();
