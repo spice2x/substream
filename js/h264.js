@@ -117,7 +117,14 @@ class MseSink {
     // pruning old buffer is only worth doing this often, not on every single decoded frame
     static PRUNE_INTERVAL_S = 1;
 
-    constructor(spsNal, ppsNal, onframe, onerror) {
+    constructor(spsNal, ppsNal, size, onframe, onerror) {
+        // the track header fixes the picture size for the whole stream, and the browser
+        // scales the decoded frames into it, so a wrong guess here is a permanently
+        // distorted image rather than something the decoder can correct later
+        if (!size || !size.width || !size.height) {
+            throw new Error('stream size unknown');
+        }
+
         this.onerror = onerror;
         this.onframe = onframe;
         this.sequence = 1;
@@ -151,7 +158,8 @@ class MseSink {
             try {
                 this.sourceBuffer = this.mediaSource.addSourceBuffer(mime);
                 this.sourceBuffer.mode = 'segments';
-                this.append(Mp4Mux.initSegment(spsNal, ppsNal, 1920, 1080, MseSink.TIMESCALE));
+                this.append(Mp4Mux.initSegment(
+                        spsNal, ppsNal, size.width, size.height, MseSink.TIMESCALE));
             } catch (error) {
                 this.onerror(error);
             }
@@ -310,6 +318,7 @@ class H264Stream {
         this.controller = null;
         this.sink = null;
         this.mode = null;
+        this.size = null;
         this.sps = null;
         this.pps = null;
         this.pending = new Uint8Array(0);
@@ -320,9 +329,10 @@ class H264Stream {
         this.onerror = () => {};
     }
 
-    async start(url, mode) {
+    async start(url, mode, size) {
         this.stop();
         this.mode = mode;
+        this.size = size;
 
         const controller = new AbortController();
         this.controller = controller;
@@ -460,7 +470,7 @@ class H264Stream {
 
         try {
             this.sink = this.mode === 'mse'
-                    ? new MseSink(this.sps, this.pps, onframe, onerror)
+                    ? new MseSink(this.sps, this.pps, this.size, onframe, onerror)
                     : new WebCodecsSink(this.sps, onframe, onerror);
         } catch (error) {
             this.sink = null;

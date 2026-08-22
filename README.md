@@ -13,6 +13,10 @@ spice64.exe -api <port> -apistream
 
 Add `-apipass <password>` if you want the input connection encrypted.
 
+The API connection is what tells substream where the video lives, so `-api` is required
+even though the video itself arrives over a separate port. Nothing is streamed until the
+API answers.
+
 Alternatively, in spicecfg:
 
 <img width="568" height="356" alt="cfg" src="https://github.com/user-attachments/assets/caeffedb-1162-4d49-a30f-16bbe0a1d6d9" />
@@ -75,7 +79,7 @@ missing the option is greyed out and MJPEG is used instead.
 - Let port, port+1, and port+2 through Windows Firewall when connecting from another device.
 - Double check your IP; don't mix up IP address of PC running the game (spice2x API port) and IP address of PC running substream - which may or may not be the same.
 - Web server must be running on HTTP, not HTTPS.
-- spice2x limits to one viewer per screen for the stream API. Disconnect all other clients if you can connect to API but can't get video.
+- spice2x limits to one viewer per screen for the stream API; substream says so when the screen is taken, and keeps retrying until it frees up.
 - Streaming video from spice2x is unencrypted and unauthenticated. Anyone who can reach the port can watch.
 - If the command line window immediately closes, make sure you installed python 3.
 - Keep the FPS to be under 30 - any higher than that, it may start affecting the game's performance.
