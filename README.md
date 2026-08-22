@@ -76,3 +76,7 @@ missing the option is greyed out and MJPEG is used instead.
 - Web server must be running on HTTP, not HTTPS.
 - spice2x limits to one viewer per screen for the stream API. Disconnect all other clients if you can connect to API but can't get video.
 - Streaming video from spice2x is unencrypted and unauthenticated. Anyone who can reach the port can watch.
+
+## Contributing
+
+This is meant to be a simple reference implementation of the video stream endpoint of spice2x; please don't add new features beyond that (no card readers, no PIN input, etc).
