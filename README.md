@@ -19,20 +19,25 @@ Alternatively, in spicecfg:
 
 ## Streaming sub screen to substream app
 
-Grab the latest zip from [Releases](https://github.com/spice2x/substream/releases) and unpack it anywhere.
+### If you want to run it on another PC
 
-### If you want to run it on your PC
-
+1. Grab the latest zip from [Releases](https://github.com/spice2x/substream/releases) and unpack it on another PC
 1. Double click index.html to launch in a browser
-2. Fill out `Host` and `API port`, press `Connect`
+1. Fill out `Host` and `API port`, press `Connect`
+
+It can't be the same PC as the one running the game; touch will not work as expected.
 
 ### If you want to run it on your mobile device
 
-1. Double-click `serve.bat` to start the server on your PC. It doesn't have to be on the same PC that is running spice2x
-2. Open a web browser on any device and navigate to one of the URLs shown by the server; e.g., `http://<ip>:45000`
-3. Fill out `Host` and `API port`, press `Connect`
+1. Grab the latest zip from [Releases](https://github.com/spice2x/substream/releases) and unpack it on the PC running spice2x
+1. Double-click `serve.bat` to start the server
+1. Launch the game
+1. Open a web browser on any device and navigate to one of the URLs shown by the server; e.g., `http://<ip>:45000`
+1. Fill out `Host` and `API port`, press `Connect`
 
 To make the web page full screen on iOS, use Share then Add to Home Screen and launch it from there.
+
+Technically, step #1 can be done on any PC; you just need to connect to the correct IP address.
 
 #### Using a different port
 
