@@ -11,10 +11,6 @@ class H264Stream {
     // how many frames may be queued before the decoder is considered to have fallen behind
     static QUEUE_LIMIT = 8;
 
-    static get supported() {
-        return typeof VideoDecoder !== 'undefined' && typeof AbortController !== 'undefined';
-    }
-
     constructor(canvas) {
         this.canvas = canvas;
         this.context = canvas.getContext('2d');
