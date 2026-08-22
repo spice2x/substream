@@ -23,7 +23,8 @@ Grab the latest zip from [Releases](https://github.com/spice2x/substream/release
 
 ### If you want to run it on your PC
 
-Double click index.html to launch in a browser.
+1. Double click index.html to launch in a browser
+2. Fill out `Host` and `API port`, press `Connect`
 
 ### If you want to run it on your mobile device
 
