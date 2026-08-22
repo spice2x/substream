@@ -104,6 +104,13 @@ class MseSink {
     // how far behind the buffered edge playback may drift before jumping forward
     static MAX_LATENCY_S = 0.5;
 
+    // how far behind live to sit deliberately. the stream carries no timestamps, so the
+    // element's clock is reconstructed from arrival gaps and any short-term mismatch starves
+    // it - a stall reads as a freeze followed by a jump, where MJPEG (no clock at all) just
+    // shows an uneven frame. this cushion is what buys back the difference; measured
+    // delivery jitter peaks around 30ms, so it is several frames of slack
+    static TARGET_LATENCY_S = 0.2;
+
     // how much buffered history is kept behind the current position
     static KEEP_BEHIND_S = 2;
 
@@ -201,11 +208,22 @@ class MseSink {
         this.mediaTimeTicks += durationTicks;
         this.sequence++;
 
-        if (this.video.paused && this.video.readyState >= 2) {
+        // starting the moment a single frame is decodable leaves nothing in hand, so the
+        // first hiccup stalls it; wait for the cushion to fill first
+        if (this.video.paused && this.video.readyState >= 2 && this.buffered_ahead() >= MseSink.TARGET_LATENCY_S) {
             this.video.play().catch(() => {});
         }
 
         this.maybeCatchUp();
+    }
+
+    buffered_ahead() {
+        const buffered = this.video.buffered;
+        if (buffered.length === 0) {
+            return 0;
+        }
+
+        return buffered.end(buffered.length - 1) - this.video.currentTime;
     }
 
     // a <video> plays at 1x from wherever it started; without this, a slow start or a brief
@@ -218,7 +236,8 @@ class MseSink {
 
         const end = buffered.end(buffered.length - 1);
         if (end - this.video.currentTime > MseSink.MAX_LATENCY_S) {
-            this.video.currentTime = end - 0.05;
+            // landing right on the live edge would starve the clock again immediately
+            this.video.currentTime = end - MseSink.TARGET_LATENCY_S;
         }
 
         const keepFrom = end - MseSink.KEEP_BEHIND_S;
