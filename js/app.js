@@ -52,6 +52,8 @@
     let apiState = 'idle';
     let streamState = 'idle';
     let streamWanted = false;
+    // capture.get_streams payload; null until the API answers, and nothing streams before it
+    let streams = null;
     let touchCanvas = null;
     let retryTimer = null;
     let retryDelay = STREAM_RETRY_MS;
@@ -120,24 +122,70 @@
         return el('host').value.trim() || HOST_GUESS;
     }
 
-    function streamUrl(path) {
+    // the UI offers two ways to play H.264, but the server only serves the one stream
+    function wantedFormat() {
+        return wantH264() ? 'h264' : 'mjpeg';
+    }
+
+    function streamFormat() {
+        const formats = (streams && streams.formats) || [];
+        return formats.find((entry) => entry.name === wantedFormat()) || null;
+    }
+
+    function streamAvailable() {
+        return Boolean(streams && streamFormat());
+    }
+
+    // the server picks the subscreen when one exists, so auto has to resolve the same way
+    function activeScreen() {
+        if (el('screen').value !== '') {
+            return number(el('screen').value, 0);
+        }
+
+        const screens = (streams && streams.screens) || [];
+        return screens.some((entry) => entry.screen === 1) ? 1 : 0;
+    }
+
+    // null while the screen has never been drawn, which is all the API can honestly say
+    function streamSize() {
+        const match = activeScreenInfo();
+        return match && match.width && match.height
+                ? { width: match.width, height: match.height }
+                : null;
+    }
+
+    function activeScreenInfo() {
+        const screens = (streams && streams.screens) || [];
+        return screens.find((entry) => entry.screen === activeScreen()) || null;
+    }
+
+    // the claim can still be taken between asking and connecting, so this only saves the
+    // user a pointless connection attempt rather than making one impossible
+    function screenBusy() {
+        const match = activeScreenInfo();
+        return Boolean(match && match.busy);
+    }
+
+    // null until the API has told us where the stream lives; guessing a port only ever
+    // produced connections that fail for reasons the user cannot see
+    function streamUrl() {
+        const format = streamFormat();
+        if (!streams || !format) {
+            return null;
+        }
+
         const host = hostName();
         const authority = host.includes(':') && !host.startsWith('[') ? `[${host}]` : host;
 
-        // the stream server sits two ports above the API port
-        const port = apiPort() + 2;
-
         const query = new URLSearchParams();
-        if (el('screen').value !== '') {
-            query.set('screen', el('screen').value);
-        }
+        query.set('screen', String(activeScreen()));
         query.set('fps', String(clamp(number(el('fps').value, 30), 1, 60)));
         query.set('q', String(clamp(number(el('quality').value, 70), 1, 100)));
 
         // a fresh URL keeps the browser from reusing the previous stream connection
         query.set('_', String(Date.now()));
 
-        return `http://${authority}:${port}${path}?${query.toString()}`;
+        return `http://${authority}:${streams.port}${format.path}?${query.toString()}`;
     }
 
     // H.264 decodes into a canvas, MJPEG lands in an img; only one is ever on screen
@@ -367,6 +415,20 @@
         } else if (!streamWanted) {
             message.textContent = 'Not connected';
             message.hidden = false;
+        } else if (apiState !== 'open') {
+            message.textContent = 'Connecting to spice2x';
+            message.hidden = false;
+        } else if (!streams) {
+            message.textContent = 'No video stream - run spice2x with -apistream';
+            message.hidden = false;
+        } else if (!streamFormat()) {
+            message.textContent = wantH264()
+                    ? 'This spice2x build has no H.264 encoder'
+                    : 'This spice2x build has no JPEG encoder';
+            message.hidden = false;
+        } else if (screenBusy() && streamState !== 'live') {
+            message.textContent = 'Screen is already being streamed elsewhere';
+            message.hidden = false;
         } else if (streamState === 'live') {
             message.hidden = true;
         } else if (streamState === 'error') {
@@ -403,6 +465,12 @@
     function startStream() {
         clearTimeout(retryTimer);
         retryTimer = null;
+
+        const url = streamUrl();
+        if (!url) {
+            return;
+        }
+
         streamState = 'connecting';
 
         const h264 = wantH264();
@@ -410,9 +478,9 @@
         video.hidden = h264;
 
         if (h264) {
-            decoder.start(streamUrl('/stream.h264'), h264Mode());
+            decoder.start(url, h264Mode(), streamSize());
         } else {
-            video.src = streamUrl('/stream.mjpg');
+            video.src = url;
         }
 
         armStall();
@@ -435,11 +503,26 @@
         resetVideo();
         render();
 
-        clearTimeout(retryTimer);
+        scheduleRetry();
+    }
 
-        // a busy screen is routine rather than broken, so ease off instead of hammering it
-        retryTimer = setTimeout(startStream, retryDelay);
+    // a busy screen is routine rather than broken, so ease off instead of hammering it
+    function scheduleRetry() {
+        clearTimeout(retryTimer);
+        retryTimer = setTimeout(retryStream, retryDelay);
         retryDelay = Math.min(retryDelay * 2, STREAM_RETRY_MAX_MS);
+    }
+
+    // whether the screen is free, and at what size, can both have changed since we last
+    // asked, so every attempt starts by asking again rather than reusing a stale answer
+    function retryStream() {
+        if (!streamWanted) {
+            return;
+        }
+
+        if (api && apiState === 'open') {
+            loadStreams();
+        }
     }
 
     function stopStream() {
@@ -450,6 +533,70 @@
         streamState = 'idle';
         releaseAll();
         resetVideo();
+    }
+
+    // the game decides which screens exist, so the fixed 0-3 list the markup ships with can
+    // offer screens that are not there. one already being watched stays listed, since the
+    // claim is often released a moment later and picking it is how you wait for that
+    function populateScreens() {
+        const select = el('screen');
+        const previous = select.value;
+
+        // the claim on the screen we are watching is our own, and marking it would read as
+        // unavailable; only somebody else holding one is worth warning about
+        const ours = streamState === 'idle' ? null : activeScreen();
+
+        while (select.options.length > 0) {
+            select.remove(0);
+        }
+
+        const auto = document.createElement('option');
+        auto.value = '';
+        auto.textContent = 'auto';
+        select.appendChild(auto);
+
+        for (const entry of streams.screens || []) {
+            const option = document.createElement('option');
+            option.value = String(entry.screen);
+            option.textContent = entry.busy && entry.screen !== ours
+                    ? `${entry.screen} (in use)`
+                    : String(entry.screen);
+            select.appendChild(option);
+        }
+
+        // a remembered screen this game does not have would leave the box blank
+        select.value = previous;
+        if (select.value !== previous) {
+            select.value = '';
+        }
+    }
+
+    // the stream port, the path and the frame size all come from here, so a failed or
+    // unanswered query means there is nothing to connect to rather than something to guess at
+    function loadStreams() {
+        api.request('capture', 'get_streams').then((data) => {
+            streams = data[0] || null;
+        }).catch(() => {
+            streams = null;
+        }).then(() => {
+            if (!streamWanted) {
+                return;
+            }
+
+            if (streams) {
+                populateScreens();
+            }
+
+            // nothing to connect to yet; keep asking in case the screen frees up
+            if (!streamAvailable() || screenBusy()) {
+                stopStream();
+                render();
+                scheduleRetry();
+                return;
+            }
+
+            restartStream();
+        });
     }
 
     // screen, fps and quality are fixed for the life of the request, so they need a new one
@@ -506,14 +653,7 @@
         }
     };
 
-    decoder.onerror = (error, status) => {
-        // only a build without the H.264 encoder answers 404 on a path the server routes
-        if (status === 404 && wantH264()) {
-            el('format').value = 'mjpg';
-            saveSettings();
-            note('No H.264 in this build - using MJPEG');
-        }
-
+    decoder.onerror = () => {
         streamFailed();
     };
 
@@ -540,7 +680,14 @@
         clearInterval(pingTimer);
         pingTimer = setInterval(() => {
             if (api && api.connected && pointers.size === 0) {
-                api.request('info', 'avs').catch(() => {});
+                // doubles as the keepalive, and keeps the in-use markers from going stale
+                // as other viewers come and go while we are already watching
+                api.request('capture', 'get_streams').then((data) => {
+                    if (data[0]) {
+                        streams = data[0];
+                        populateScreens();
+                    }
+                }).catch(() => {});
             }
         }, API_PING_MS);
     }
@@ -556,7 +703,6 @@
 
         streamWanted = true;
         retryDelay = STREAM_RETRY_MS;
-        startStream();
 
         api = new SpiceApi(
                 hostName(),
@@ -568,11 +714,16 @@
             if (state === 'open') {
                 detectTouchCanvas();
                 startPing();
+                loadStreams();
             } else {
                 stopPing();
                 touchCanvas = null;
                 pointers.clear();
                 resets.length = 0;
+
+                // the stream details came from the API, so they are no longer known to hold
+                streams = null;
+                stopStream();
             }
 
             if ((state === 'closed' || state === 'error') && streamWanted) {
@@ -597,6 +748,8 @@
         streamWanted = false;
         stopStream();
         stopPing();
+
+        streams = null;
 
         clearTimeout(apiRetryTimer);
         apiRetryTimer = null;
