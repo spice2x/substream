@@ -97,22 +97,37 @@ class MseSink {
     static TIMESCALE = 90000;
     static NOMINAL_DURATION = Math.round(MseSink.TIMESCALE / 30);
 
-    // a stray huge gap (tab backgrounded, game hitch) would otherwise stretch one fragment
-    // across it and then immediately trip maybeCatchUp() into a seek anyway - clamp instead
-    static MAX_DURATION_S = 0.5;
+    // The source stops for a second or more between loading screens, which nothing here can
+    // play through. Capping the duration keeps that gap from being written into the timeline:
+    // nothing was on screen during it, so the frame that ends it is an ordinary frame, not one
+    // that held for the length of the gap.
+    //
+    // It also decides how much cushion survives a gap. The element drains its cushion and stalls
+    // while the source is away, and the frame that ends the gap is the only chance to put any
+    // back, so the cushion lands at roughly this value and stays there. At 0.05 that was a third
+    // of the target, measured before and after a gap in the same run: 0.15 down to 0.03, never
+    // recovering, leaving less margin than the delivery jitter it has to absorb.
+    //
+    // Self limiting rather than cumulative: a gap sets the cushion to about this much, it cannot
+    // go beyond it, and there is no longer a drift seek for an inflated timeline to trigger.
+    static MAX_DURATION_S = 0.25;
 
-    // how far behind the buffered edge playback may drift before jumping forward
-    static MAX_LATENCY_S = 0.5;
-
-    // how far behind live to sit deliberately. the stream carries no timestamps, so the
+    // How far behind live to sit deliberately. The stream carries no timestamps, so the
     // element's clock is reconstructed from arrival gaps and any short-term mismatch starves
-    // it - a stall reads as a freeze followed by a jump, where MJPEG (no clock at all) just
-    // shows an uneven frame. measured delivery jitter peaks around 30ms, so this is roughly
-    // three worst-case gaps of slack; raising it trades latency for tolerance
-    static TARGET_LATENCY_S = 0.1;
+    // it. Enough to cover the ~40ms delivery jitter several times over without adding latency
+    // that is felt.
+    static TARGET_LATENCY_S = 0.15;
 
-    // how much buffered history is kept behind the current position
-    static KEEP_BEHIND_S = 2;
+    // How much buffered history is kept behind the current position. This has to stay well
+    // clear of the keyframe interval, two seconds here: at exactly one interval the removal
+    // boundary lands on the keyframe the frames being played still reference, and stripping it
+    // leaves them undecodable. That killed playback within a couple of seconds of every start,
+    // reliably, and moving the boundary several keyframes back fixed it.
+    //
+    // Three intervals of margin rather than more, because this is all held as encoded video: at
+    // the ~4MB/s this stream runs at, every second kept is a megabyte a phone has to find, and
+    // overrunning the browser's buffer quota fails the append outright rather than degrading.
+    static KEEP_BEHIND_S = 6;
 
     // pruning old buffer is only worth doing this often, not on every single decoded frame
     static PRUNE_INTERVAL_S = 1;
@@ -222,7 +237,7 @@ class MseSink {
             this.video.play().catch(() => {});
         }
 
-        this.maybeCatchUp();
+        this.prune();
     }
 
     buffered_ahead() {
@@ -234,20 +249,13 @@ class MseSink {
         return buffered.end(buffered.length - 1) - this.video.currentTime;
     }
 
-    // a <video> plays at 1x from wherever it started; without this, a slow start or a brief
-    // stall would leave it forever behind live instead of just skipping the gap
-    maybeCatchUp() {
+    prune() {
         const buffered = this.video.buffered;
         if (buffered.length === 0) {
             return;
         }
 
         const end = buffered.end(buffered.length - 1);
-        if (end - this.video.currentTime > MseSink.MAX_LATENCY_S) {
-            // landing right on the live edge would starve the clock again immediately
-            this.video.currentTime = end - MseSink.TARGET_LATENCY_S;
-        }
-
         const keepFrom = end - MseSink.KEEP_BEHIND_S;
         if (keepFrom > 0.1 && end - this.lastPruneAt > MseSink.PRUNE_INTERVAL_S) {
             this.lastPruneAt = end;
@@ -322,7 +330,11 @@ class H264Stream {
         this.sps = null;
         this.pps = null;
         this.pending = new Uint8Array(0);
+        this.headSize = 0;
+        this.scanned = 0;
         this.unit = [];
+        this.unitHasVcl = false;
+        this.unitIsKey = false;
 
         // called on the first decoded frame, on every frame, and on any failure
         this.onframe = () => {};
@@ -383,7 +395,11 @@ class H264Stream {
         this.sps = null;
         this.pps = null;
         this.pending = new Uint8Array(0);
+        this.headSize = 0;
+        this.scanned = 0;
         this.unit = [];
+        this.unitHasVcl = false;
+        this.unitIsKey = false;
     }
 
     fail(error, status) {
@@ -404,13 +420,41 @@ class H264Stream {
         return data[i + 2] === 0 && data[i + 3] === 1 ? 4 : 0;
     }
 
+    // Whether a NAL is the first of a new access unit, from the bitstream itself rather than
+    // from how many slices a picture is expected to arrive in. A picture may be split into any
+    // number of slices, and assuming it was always one is what this used to get wrong.
+    static startsAccessUnit(header, first) {
+        const type = header & 0x1f;
+
+        // parameter sets and delimiters lead the access unit they describe
+        if (type !== 1 && type !== 5) {
+            return true;
+        }
+
+        // first_mb_in_slice leads the slice header as an exp-Golomb value, where a leading set
+        // bit is how zero is written. only the slice covering the top left macroblock opens a
+        // picture; the rest continue one already open
+        return (first & 0x80) !== 0;
+    }
+
     consume(chunk) {
         const merged = new Uint8Array(this.pending.length + chunk.length);
         merged.set(this.pending);
         merged.set(chunk, this.pending.length);
 
         const marks = [];
-        for (let i = 0; i + 3 < merged.length; i++) {
+
+        // the start code at the head was found on an earlier pass; looking for it again would
+        // mean rescanning the whole buffer, which is the thing being avoided here
+        if (this.headSize > 0) {
+            marks.push({ begin: 0, payload: this.headSize });
+        }
+
+        // Only what just arrived needs examining, plus a few bytes before it in case a start
+        // code straddles the join. Rescanning from the beginning made each chunk of a frame
+        // cost more than the one before it, so a large keyframe spread over many chunks cost
+        // far more than its size suggests, once every keyframe interval.
+        for (let i = Math.max(this.headSize, this.scanned - 3); i + 3 < merged.length; i++) {
             const size = H264Stream.startCode(merged, i);
             if (size > 0) {
                 marks.push({ begin: i, payload: i + size });
@@ -423,12 +467,39 @@ class H264Stream {
             this.push(merged.subarray(marks[m].payload, marks[m + 1].begin));
         }
 
-        this.pending = marks.length > 0
-                ? merged.subarray(marks[marks.length - 1].begin)
-                : merged;
+        if (marks.length > 0) {
+            const last = marks[marks.length - 1];
+            this.pending = merged.subarray(last.begin);
+            this.headSize = last.payload - last.begin;
+        } else {
+            this.pending = merged;
+            this.headSize = 0;
+        }
+
+        this.scanned = this.pending.length;
+
+        this.closeUnitIfNextBegan();
 
         if (this.pending.length > H264Stream.PENDING_LIMIT) {
             this.fail(new Error('h264 buffer overflow'));
+        }
+    }
+
+    // The header of the NAL still arriving is enough to tell that the buffered picture is
+    // complete, so it goes to the decoder now rather than waiting a whole frame for that NAL
+    // to finish.
+    closeUnitIfNextBegan() {
+        if (!this.unitHasVcl) {
+            return;
+        }
+
+        const size = H264Stream.startCode(this.pending, 0);
+        if (size === 0 || this.pending.length < size + 2) {
+            return;
+        }
+
+        if (H264Stream.startsAccessUnit(this.pending[size], this.pending[size + 1])) {
+            this.emit();
         }
     }
 
@@ -455,12 +526,18 @@ class H264Stream {
             return;
         }
 
+        // the previous picture is finished once a NAL belonging to the next one turns up
+        if (this.unitHasVcl && H264Stream.startsAccessUnit(nal[0], nal.length > 1 ? nal[1] : 0)) {
+            this.emit();
+        }
+
         this.unit.push(nal);
 
-        // x264 emits one slice per picture here, so a VCL NAL always closes the access unit
-        // that any parameter sets ahead of it belong to
         if (type === 1 || type === 5) {
-            this.emit(type === 5);
+            this.unitHasVcl = true;
+            if (type === 5) {
+                this.unitIsKey = true;
+            }
         }
     }
 
@@ -478,10 +555,17 @@ class H264Stream {
         }
     }
 
-    emit(key) {
+    emit() {
         const nals = this.unit;
+        const key = this.unitIsKey;
+
         this.unit = [];
-        this.sink.decode(nals, key);
+        this.unitHasVcl = false;
+        this.unitIsKey = false;
+
+        if (nals.length > 0) {
+            this.sink.decode(nals, key);
+        }
     }
 
     // frame is a WebCodecs VideoFrame (has displayWidth/displayHeight, needs close()) or a
