@@ -418,8 +418,13 @@
         } else if (apiState !== 'open') {
             message.textContent = 'Connecting to spice2x';
             message.hidden = false;
-        } else if (!streamAvailable()) {
+        } else if (!streams) {
             message.textContent = 'No video stream - run spice2x with -apistream';
+            message.hidden = false;
+        } else if (!streamFormat()) {
+            message.textContent = wantH264()
+                    ? 'This spice2x build has no H.264 encoder'
+                    : 'This spice2x build has no JPEG encoder';
             message.hidden = false;
         } else if (screenBusy() && streamState !== 'live') {
             message.textContent = 'Screen is already being streamed elsewhere';
@@ -530,6 +535,42 @@
         resetVideo();
     }
 
+    // the game decides which screens exist, so the fixed 0-3 list the markup ships with can
+    // offer screens that are not there. one already being watched stays listed, since the
+    // claim is often released a moment later and picking it is how you wait for that
+    function populateScreens() {
+        const select = el('screen');
+        const previous = select.value;
+
+        // the claim on the screen we are watching is our own, and marking it would read as
+        // unavailable; only somebody else holding one is worth warning about
+        const ours = streamState === 'idle' ? null : activeScreen();
+
+        while (select.options.length > 0) {
+            select.remove(0);
+        }
+
+        const auto = document.createElement('option');
+        auto.value = '';
+        auto.textContent = 'auto';
+        select.appendChild(auto);
+
+        for (const entry of streams.screens || []) {
+            const option = document.createElement('option');
+            option.value = String(entry.screen);
+            option.textContent = entry.busy && entry.screen !== ours
+                    ? `${entry.screen} (in use)`
+                    : String(entry.screen);
+            select.appendChild(option);
+        }
+
+        // a remembered screen this game does not have would leave the box blank
+        select.value = previous;
+        if (select.value !== previous) {
+            select.value = '';
+        }
+    }
+
     // the stream port, the path and the frame size all come from here, so a failed or
     // unanswered query means there is nothing to connect to rather than something to guess at
     function loadStreams() {
@@ -540,6 +581,10 @@
         }).then(() => {
             if (!streamWanted) {
                 return;
+            }
+
+            if (streams) {
+                populateScreens();
             }
 
             // nothing to connect to yet; keep asking in case the screen frees up
@@ -608,14 +653,7 @@
         }
     };
 
-    decoder.onerror = (error, status) => {
-        // only a build without the H.264 encoder answers 404 on a path the server routes
-        if (status === 404 && wantH264()) {
-            el('format').value = 'mjpg';
-            saveSettings();
-            note('No H.264 in this build - using MJPEG');
-        }
-
+    decoder.onerror = () => {
         streamFailed();
     };
 
@@ -642,7 +680,14 @@
         clearInterval(pingTimer);
         pingTimer = setInterval(() => {
             if (api && api.connected && pointers.size === 0) {
-                api.request('info', 'avs').catch(() => {});
+                // doubles as the keepalive, and keeps the in-use markers from going stale
+                // as other viewers come and go while we are already watching
+                api.request('capture', 'get_streams').then((data) => {
+                    if (data[0]) {
+                        streams = data[0];
+                        populateScreens();
+                    }
+                }).catch(() => {});
             }
         }, API_PING_MS);
     }
