@@ -25,6 +25,11 @@
     const BLANK_IMAGE = 'data:image/gif;base64,'
             + 'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 
+    // WebKit is the only engine that ignores a source change on a multipart stream, and the
+    // only one that needs the document-wide stop that costs us the websocket elsewhere.
+    // GestureEvent is WebKit's own, the same thing the pinch handlers below key off
+    const WEBKIT = typeof window.GestureEvent !== 'undefined';
+
     // whoever served this page is usually also running the game, so a blank host falls back
     // to it rather than making the address be typed out again
     const HOST_GUESS = (location.protocol.startsWith('http') && location.hostname)
@@ -675,13 +680,16 @@
         streamFailed();
     };
 
-    // Chromium drops the multipart request when the source changes, WebKit ignores that and
-    // honours only the browser's own stop. Nothing else of ours is ever in flight here, and
-    // stop() leaves the websocket alone.
+    // Chromium and Firefox drop the multipart request when the source changes, WebKit ignores
+    // that and honours only the browser's own stop. Firefox cancels the whole document's
+    // loads there, the API websocket included, which shows up as a viewer that connects and
+    // is dropped a moment later, over and over.
     function resetVideo() {
         decoder.stop();
         video.src = BLANK_IMAGE;
-        window.stop();
+        if (WEBKIT) {
+            window.stop();
+        }
     }
 
     // a hidden page stops reading and the server drops the stream a few seconds later, which
