@@ -133,20 +133,27 @@
     }
 
     function streamAvailable() {
-        return Boolean(streams && streamFormat());
+        return Boolean(streams && streamFormat() && activeScreenInfo());
     }
 
-    // the server picks the subscreen when one exists, so auto has to resolve the same way
+    // the server picks the subscreen when one exists, so auto has to resolve the same way.
+    // a screen the API has not measured yet is not listed at all, so the fallback is whatever
+    // it does list rather than screen 0, which need not exist
     function activeScreen() {
+        const screens = (streams && streams.screens) || [];
+
         if (el('screen').value !== '') {
             return number(el('screen').value, 0);
         }
 
-        const screens = (streams && streams.screens) || [];
-        return screens.some((entry) => entry.screen === 1) ? 1 : 0;
+        if (screens.some((entry) => entry.screen === 1)) {
+            return 1;
+        }
+
+        return screens.length > 0 ? screens[0].screen : 0;
     }
 
-    // null while the screen has never been drawn, which is all the API can honestly say
+    // null while the screen is not one the API is currently offering
     function streamSize() {
         const match = activeScreenInfo();
         return match && match.width && match.height
@@ -426,6 +433,11 @@
                     ? 'This spice2x build has no H.264 encoder'
                     : 'This spice2x build has no JPEG encoder';
             message.hidden = false;
+        } else if (!activeScreenInfo() && streamState !== 'live') {
+            message.textContent = (streams.screens || []).length > 0
+                    ? 'That screen is not ready yet - waiting'
+                    : 'The game has not drawn a screen yet - waiting';
+            message.hidden = false;
         } else if (screenBusy() && streamState !== 'live') {
             message.textContent = 'Screen is already being streamed elsewhere';
             message.hidden = false;
@@ -564,10 +576,16 @@
             select.appendChild(option);
         }
 
-        // a remembered screen this game does not have would leave the box blank
+        // a screen drops off the list until the game has drawn it, and silently rewriting the
+        // choice to auto would move the viewer to another screen once it came back; keep it
+        // listed so the selection survives, and let the stream retry until it returns
         select.value = previous;
         if (select.value !== previous) {
-            select.value = '';
+            const missing = document.createElement('option');
+            missing.value = previous;
+            missing.textContent = `${previous} (not ready)`;
+            select.appendChild(missing);
+            select.value = previous;
         }
     }
 
